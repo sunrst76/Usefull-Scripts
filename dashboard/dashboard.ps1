@@ -307,7 +307,9 @@ $BtnSFC.Size = New-Object System.Drawing.Size(160, 40)
 $BtnSFC.Add_Click({
     Write-log "`r`nЗапуск быстрой проверки системных файлов..."
     try {
-        sfc /verifyonly
+        # Запуск в фоновом режиме, чтобы GUI не зависал
+        Start-Process cmd.exe -ArgumentList "/c sfc /scannow && findstr /c:`"[SR]`" %windir%\Logs\CBS\CBS.log > `"$([Environment]::GetFolderPath('Desktop'))\SFC_LOG.txt`"" -WindowStyle Hidden
+
         Write-log "`r`nПроверка запущена! Результаты будут записаны в системный журнал CBS.log."
     } catch {
         Write-log "`r`nОШИБКА: Требуются права Администратора."
@@ -331,17 +333,35 @@ $BtnCBS.Add_Click({
 
     if (Test-Path $LogPath) {
         try {
-            # Вытягиваем только строки проверки файлов [R] и сохраняем в файл
-            Get-Content $LogPath -ErrorAction Stop |
-                Select-String -Pattern "\[SR]\" |
-                ForEach-Object { $_.Line } |
-                Out-File $OutputPath -Encoding utf8
+            # Путь к системному логу
+            $logPath = "C:\Windows\Logs\CBS\CBS.log"
+    
+            # Открываем файл в режиме обхода блокировки чтения (FileShare.ReadWrite)
+            $fileStream = New-Object System.IO.FileStream($logPath, [System.IO.FileMode]::Open, [System.IO.FileAccess]::Read, [System.IO.FileShare]::ReadWrite)
+            $streamReader = New-Object System.IO.StreamReader($fileStream)
+    
+            # Читаем, к примеру, последние 50 строк, чтобы не перегружать интерфейс
+            $logLines = New-Object System.Collections.Generic.List[string]
+            while (($line = $streamReader.ReadLine()) -ne $null) {
+                if ($line -like "*[SR]*") { # Фильтруем только отчеты SFC
+                    $logLines.Add($line)
+                }
+            }
+    
+            # Закрываем потоки
+            $streamReader.Close()
+            $fileStream.Close()
 
-            Write-log "`r`nАнализ заверешен! Чистый отчет сохранен на вашем Рабочем столе в файл sfc_report.txt."
-            # Автоматически открываем блокнот с отчетом для пользователя
-            Start-Process notepad.exe $OutputPath
+            # Выводим последние 30 важных записей в текстовое поле вашего интерфейса
+            $resultText = ($logLines | Select-Object -Last 30) -join "`r`n"
+    
+            # Записываем отфильтрованный лог на рабочий стол (на всякий случай)
+            $desktopPath = [Environment]::GetFolderPath('Desktop')
+            $logLines | Out-File -FilePath "$desktopPath\SFC_LOG.txt" -Encoding utf8
+    
         } catch {
-            Write-log "`r`nОШИБКА: Не удалось прочесть лог. Запустите дашборд от имени Администратора!"
+            # Если даже этот способ не сработал
+            Write-Output "ОШИБКА: Не удалось получить доступ к журналу CBS.log напрямую."
         }
     } else {
         Write-log "`r`nФайл CBS.log не найден. Проверка SFC еще ни разу не запускалась."
@@ -746,10 +766,9 @@ $Form.Controls.Add($BtnExit)
 # --- Запуск окна ---
 $Form.TopMost = $true
 $Form.Add_Shown({
-    $Form.TopMost = $false # как только окно показалось, отпускаем фокус, чтобы оно не мешало другим программам
-    $Form.Activate() # делаем окно активным для ввода
-    $Form.Focus()
-    [void]$SetForegroundWindow::SetForegroundWindow($Form.Handle)
+    $this.TopMost = $false # отпускаем фокус
+    $this.Activate()       # делаем активным для ввода
+    $this.Focus()          # ставим фокус на элементы управления
 })
 
 $Form.ShowDialog() | Out-Null

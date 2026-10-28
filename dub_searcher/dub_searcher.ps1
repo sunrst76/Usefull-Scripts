@@ -52,7 +52,7 @@ Write-Host " === Запуск поиска дубликатов ===" -ForegroundColor Cyan
 Write-Host "Сканирование папки: $TargetFolder" -ForegroundColor Yellow
 Write-Host "Это может занять продолжительное время, если файлов много..." -ForegroundColor Gray
 
-if (-not (Test-Path $TargetFolder)) {
+if ($null -ne $TargetFolder -and -not (Test-Path $TargetFolder)) {
     Write-Host "Ошибка: Отмена выбора пути" -ForegroundColor Red
     Write-Host "Нажмите любую клавишу для выхода"
     $null = [Console]::ReadKey($true)
