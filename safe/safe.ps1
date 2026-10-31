@@ -85,6 +85,8 @@ $openFileDialog.Filter = "Все файлы (*.*)|*.*"
 
 if ($openFileDialog.ShowDialog() -ne [System.Windows.Forms.DialogResult]::OK) {
     Write-Host "Действие отменено пользователем." -ForegroundColor Yellow
+    Write-Host "`nНажмите любую клавишу для завершения работы..."
+    $null = [Console]::ReadKey($true)
     Exit
 }
 
@@ -96,6 +98,8 @@ $password = Get-PasswordDialog -Title "Секретный сейф (Максимальная защита)"
 
 if ([string]::IsNullOrEmpty($password)) {
     Write-Host "Пароль не введен. Выход." -ForegroundColor Red
+    Write-Host "`nНажмите любую клавишу для завершения работы..."
+    $null = [Console]::ReadKey($true)
     Exit
 }
 
